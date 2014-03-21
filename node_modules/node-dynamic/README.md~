@@ -1,0 +1,2 @@
+# node-dynamic
+A module to handle dynamic file with range support. It's useful for media server. Dynamic file doesn't mean the file need to be rendered, but it means some steps to be token to determin which file to be send or just return 404.

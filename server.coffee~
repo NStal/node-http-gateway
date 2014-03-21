@@ -1,0 +1,145 @@
+EventEmitter = require("events").EventEmitter
+http = require("http")
+http.globalAgent.maxSockets = 1000
+ws = require "ws"
+WebSocket = ws
+express = require("express")
+
+class SafeGateway extends EventEmitter
+    constructor:(@config)->
+        super()
+        @username = @config.username or "gateway"
+        @password = @config.password or "miku"
+        @routes = []
+    checkBasicAuthHeader:(value)->
+        if not value
+            return false
+        kv = value.split(/\s/ig)
+        if kv[0].toLowerCase() isnt "basic"
+            return false
+        if new Buffer(kv[1],"base64").toString().trim() is "#{@username}:#{@password}"
+            return true
+        return false
+        
+        
+    setup:()->
+        @host = @_getExternalIp()
+        #todo check port availability
+        @port = @config.port or 8899
+        if not @host
+            @emit "error","No valid external host"
+        @app = express()
+        @httpServer = http.createServer(@app)
+        @websocketServer = new ws.Server({server:@httpServer})
+        @websocketServer.on "connection",(connection)=>
+            @setupConnection(connection)
+        @app.use express.cookieParser()
+        @app.all "*",(req,res)=>
+            if not @checkBasicAuthHeader req.headers["authorization"]
+                res.status(401)
+                res.setHeader "WWW-Authenticate",'Basic realm="your username and password"'
+                res.end("Authorization required!")
+                return
+            if req.cookies.basicAuth isnt req.headers["authorization"]
+                res.cookie("basicAuth",req.headers["authorization"])
+            @routeTo(req,res)
+        @httpServer.listen @port,@host,()=>
+            @emit "ready"
+    routeTo:(req,res)->
+        for route in @routes
+            if route.match req
+                route.handle req,res
+                return
+        res.status(404)
+        res.end("not found")
+    setupConnection:(connection)->
+        console.log "setup connection"
+        req = connection.upgradeReq
+        req.path = req.url
+        req.method = "websocket"
+        cookies = require("cookie").parse(req.headers.cookie)
+        if not @checkBasicAuthHeader cookies.basicAuth
+            console.log "fail to auth"
+            connection.close()
+            return
+        for route in @routes
+            if route.match connection.upgradeReq
+                route.handleWebSocket connection
+                return
+        connection.close()
+    _getExternalIp:()->
+        ip = @config.ip or null
+        if ip and ip isnt "auto"
+            return ip
+        infs = require("os").networkInterfaces()
+        for name of infs
+            inf = infs[name]
+            for address in inf
+                if not address.internal and address.family.toLowerCase() is "ipv4"
+                    return address.address
+        return null
+
+class Route extends EventEmitter
+    constructor:(method,@route,@target)->
+        @method = method.toLowerCase()
+        @proxyTargetObject = require("url").parse(@target)
+    match:(req)->
+        console.log "match with",req.path
+        if @method isnt "all" and @method isnt req.method.toLowerCase()
+            return false
+        if req.path.indexOf(@route) isnt 0
+            return false
+        return true
+    handleWebSocket:(connection)->
+        path = connection.upgradeReq.path
+        url = require "url"
+        finalPath = url.resolve(@proxyTargetObject.path,path)
+        proxyConnection = new WebSocket("ws://#{@proxyTargetObject.host}#{finalPath}")
+        console.log "handle connection to","ws://#{@proxyTargetObject.host}#{finalPath}"
+        _buffers = []
+        isOpen = false
+        connection.on "message",(message)=>
+            if isOpen
+                proxyConnection.send  message
+            else
+                _buffers.push message
+        proxyConnection.on "open",()=>
+            isOpen = true
+            for buffer in _buffers
+                proxyConnection.send buffer
+            proxyConnection.on "close",()=>
+                connection.close()
+            proxyConnection.on "error",()=>
+                connection.close()
+            proxyConnection.on "message",(message)=>
+                connection.send message
+            connection.on "close",()=>
+                proxyConnection.close()
+    handle:(req,res)->
+        path = req.path.replace(@route,"")
+        method = req.method.toLowerCase()
+        url = require "url"
+        console.log req.headers
+        proxyReq = {
+            path:url.resolve(@proxyTargetObject.path,path)
+            ,hostname:@proxyTargetObject.hostname
+            ,port:@proxyTargetObject.port or 80
+            ,method:req.method
+            ,headers:req.headers
+        }
+        _req = http.request proxyReq,(proxyRes)=>
+            res.writeHead proxyRes.statusCode,proxyRes.headers
+            proxyRes.pipe(res)
+        _req.on "error",(err)=>
+            res.status(404)
+            res.end("error")
+        req.pipe _req
+sg = new SafeGateway({username:"wuminghan",password:"P@ssw0rd"})
+sg.setup()
+sg.routes.push new Route("all","/manga","http://localhost:3009/")
+sg.routes.push new Route("all","/sybil","http://localhost:3006/")
+sg.routes.push new Route("all","/nginx","http://localhost:80/")
+
+sg.on "ready",()=>
+    console.log "ready"
+    

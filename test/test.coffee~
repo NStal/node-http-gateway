@@ -1,0 +1,9 @@
+SafeGateway = require("../")
+Route = SafeGateway.Route
+sg = new SafeGateway({username:"miku",password:"0831",port:8899})
+sg.addRoute new Route("all","/manga","http://localhost:3009/")
+sg.addRoute new Route("all","/sybil","http://localhost:3006/")
+sg.addRoute new Route("all","/nginx","http://localhost:80/")
+sg.on "ready",()=>
+    console.log "ready"
+sg.listen()

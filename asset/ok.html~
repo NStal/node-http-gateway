@@ -1,0 +1,9 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+  </head> 
+  <body>
+    You are able to passed gateway, but the url you request are not delegated
+  </body>
+</html>

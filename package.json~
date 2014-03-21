@@ -1,0 +1,24 @@
+{
+    "name": "node-http-gateway",
+    "version": "0.0.1",
+    "description": "An gateway to proxy http/https/ws/wss outcoming message to inner services",
+    "main": "index.js",
+    "dependencies": {
+        "cookie": "~0.1.1",
+        "express": "~3.5.0",
+        "ws": "~0.4.31",
+        "node-dynamic":"*",
+        "coffee-script":"*"
+        
+    },
+    "devDependencies": {},
+    "scripts": {
+        "test": "mocha test/mocha.coffee --compilers .coffee:coffee-script"
+    },
+    "keywords": [
+        "gateway",
+        "http"
+    ],
+    "author": "NStal",
+    "license": "BSD-2-Clause"
+}

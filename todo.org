@@ -1,0 +1,8 @@
+* use other method to do the validation
+* dynamically add to remote route
+* add login view and cookie setups
+* complete secure token
+* provide default handler interface to allow custom view
+* add login view
+* update secure token at some rate
+
