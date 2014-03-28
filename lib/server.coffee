@@ -102,7 +102,7 @@ class SafeGateway extends EventEmitter
         req = connection.upgradeReq
         req.path = req.url
         req.method = "websocket"
-        cookies = require("cookie").parse(req.headers.cookie)
+        cookies = require("cookie").parse(req.headers.cookie or "")
         if not @checkAuthCookie cookies
             connection.close()
             return

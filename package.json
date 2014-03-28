@@ -1,6 +1,6 @@
 {
     "name": "node-http-gateway",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "An gateway to proxy http/https/ws/wss outcoming message to inner services",
     "main": "index.js",
     "dependencies": {
